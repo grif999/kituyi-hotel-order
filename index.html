@@ -1,0 +1,2293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Griffin's Capucino - Ordering System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            box-sizing: border-box;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap');
+        
+        .font-display { font-family: 'Playfair Display', serif; }
+        .font-body { font-family: 'Inter', sans-serif; }
+        
+        .category-coffee { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); }
+        .category-pastry { background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%); }
+        .category-sandwich { background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%); }
+        .category-dessert { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); }
+        
+        .item-card {
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .item-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        
+        .item-card.selected {
+            border-color: #059669;
+            background: #f0fdf4;
+        }
+        
+        .size-chip {
+            transition: all 0.2s ease;
+        }
+        
+        .size-chip:hover {
+            transform: scale(1.05);
+        }
+        
+        .size-chip.selected {
+            background: #059669;
+            color: white;
+        }
+        
+        .order-summary {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        }
+        
+        .order-card {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .new-order {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+        }
+        
+        .status-pending { border-left: 4px solid #f59e0b; }
+        .status-preparing { border-left: 4px solid #3b82f6; }
+        .status-ready { border-left: 4px solid #10b981; }
+        .status-completed { border-left: 4px solid #6b7280; }
+        
+        .food-animation {
+            animation: foodFloat 3s ease-in-out infinite;
+        }
+        
+        @keyframes foodFloat {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            25% { transform: translateY(-10px) rotate(2deg); }
+            50% { transform: translateY(-5px) rotate(-1deg); }
+            75% { transform: translateY(-8px) rotate(1deg); }
+        }
+        
+        .success-modal {
+            backdrop-filter: blur(10px);
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        .bounce-in {
+            animation: bounceIn 0.6s ease-out;
+        }
+        
+        @keyframes bounceIn {
+            0% { transform: scale(0.3) translateY(-50px); opacity: 0; }
+            50% { transform: scale(1.05) translateY(0); opacity: 1; }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); }
+        }
+        
+        .sparkle {
+            animation: sparkle 2s ease-in-out infinite;
+        }
+        
+        @keyframes sparkle {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-body">
+    <!-- Mode Selection -->
+    <div id="mode-selection" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-green-50">
+        <div class="text-center">
+            <h1 class="font-display text-5xl font-bold text-gray-900 mb-4">Griffin's Capucino</h1>
+            <p class="text-xl text-gray-600 mb-8">Select Your Interface</p>
+            <div class="flex gap-6">
+                <button onclick="setMode('customer')" class="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-xl text-lg font-semibold transition-all transform hover:scale-105">
+                    Customer Order
+                </button>
+                <button onclick="setMode('cashier')" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl text-lg font-semibold transition-all transform hover:scale-105">
+                    Cashier Dashboard
+                </button>
+                <button onclick="setMode('admin')" class="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-xl text-lg font-semibold transition-all transform hover:scale-105">
+                    Admin Panel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customer Interface -->
+    <div id="customer-interface" class="hidden min-h-screen">
+        <!-- Customer Name Modal -->
+        <div id="name-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
+                <h2 class="font-display text-2xl font-semibold text-gray-900 mb-4 text-center">Welcome to Griffin's Capucino!</h2>
+                <p class="text-gray-600 mb-6 text-center">Please enter your first name to start ordering</p>
+                <input type="text" id="customer-name" placeholder="Enter your first name" class="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg mb-4 focus:outline-none focus:ring-2 focus:ring-green-500">
+                <div class="flex gap-3">
+                    <button onclick="goBackFromCustomer()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-3 rounded-lg text-lg font-semibold transition-colors">
+                        Back
+                    </button>
+                    <button onclick="startOrdering()" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg text-lg font-semibold transition-colors">
+                        Start Ordering
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Welcome Screen -->
+        <div id="welcome-screen" class="hidden min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-green-50">
+            <div class="text-center max-w-2xl mx-auto px-4">
+                <div class="mb-8">
+                    <h1 class="font-display text-6xl font-bold text-gray-900 mb-4">Welcome to Griffin's Capucino!</h1>
+                    <p class="text-xl text-gray-600 mb-2">Premium Coffee & Fresh Delights</p>
+                    <p class="text-lg text-gray-500">Hello <span id="welcome-name" class="font-semibold text-green-600"></span>! Ready to order?</p>
+                </div>
+                
+                <!-- Animated Food Icons -->
+                <div class="flex justify-center items-center gap-8 mb-12">
+                    <div class="food-animation text-8xl">☕</div>
+                    <div class="sparkle text-6xl text-yellow-400">✨</div>
+                    <div class="food-animation text-8xl" style="animation-delay: 0.5s;">🥐</div>
+                    <div class="sparkle text-6xl text-yellow-400" style="animation-delay: 1s;">✨</div>
+                    <div class="food-animation text-8xl" style="animation-delay: 1s;">🥪</div>
+                </div>
+                
+                <div class="flex gap-6 justify-center">
+                    <button onclick="goToMenu()" id="start-ordering-btn" class="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-xl text-xl font-semibold transition-all transform hover:scale-105 shadow-lg">
+                        Start Ordering
+                    </button>
+                    <button onclick="changeCustomerFromWelcome()" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl text-xl font-semibold transition-all transform hover:scale-105 shadow-lg">
+                        Change Customer
+                    </button>
+                    <button onclick="goBackFromWelcome()" class="bg-gray-600 hover:bg-gray-700 text-white px-8 py-4 rounded-xl text-xl font-semibold transition-all transform hover:scale-105 shadow-lg">
+                        Back to Menu
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Passcode Modal -->
+        <div id="passcode-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
+                <h2 class="font-display text-2xl font-semibold text-gray-900 mb-4 text-center">Staff Access</h2>
+                <p class="text-gray-600 mb-6 text-center">Enter passcode to access cashier dashboard</p>
+                <input type="password" id="passcode-input" placeholder="Enter passcode" class="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center">
+                <div class="flex gap-3">
+                    <button onclick="hidePasscodeModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-3 rounded-lg text-lg font-semibold transition-colors">
+                        Cancel
+                    </button>
+                    <button onclick="checkPasscode()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg text-lg font-semibold transition-colors">
+                        Access
+                    </button>
+                </div>
+                <div id="passcode-error" class="text-red-600 text-center mt-3 hidden">Incorrect passcode. Please try again.</div>
+            </div>
+        </div>
+
+        <!-- Admin Passcode Modal -->
+        <div id="admin-passcode-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
+                <h2 class="font-display text-2xl font-semibold text-gray-900 mb-4 text-center">Admin Access</h2>
+                <p class="text-gray-600 mb-6 text-center">Enter admin passcode to access admin panel</p>
+                <input type="password" id="admin-passcode-input" placeholder="Enter admin passcode" class="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg mb-4 focus:outline-none focus:ring-2 focus:ring-purple-500 text-center">
+                <div class="flex gap-3">
+                    <button onclick="hideAdminPasscodeModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-3 rounded-lg text-lg font-semibold transition-colors">
+                        Cancel
+                    </button>
+                    <button onclick="checkAdminPasscode()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg text-lg font-semibold transition-colors">
+                        Access
+                    </button>
+                </div>
+                <div id="admin-passcode-error" class="text-red-600 text-center mt-3 hidden">Incorrect passcode. Please try again.</div>
+            </div>
+        </div>
+
+        <!-- Add New Item Modal -->
+        <div id="add-item-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-2xl p-8 max-w-lg w-full mx-4">
+                <h2 class="font-display text-2xl font-semibold text-gray-900 mb-6 text-center">Add New Menu Item</h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                        <select id="new-item-category" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                            <option value="coffee">Coffee Drinks</option>
+                            <option value="pastry">Pastries</option>
+                            <option value="sandwich">Sandwiches</option>
+                            <option value="dessert">Desserts</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Item Name</label>
+                        <input type="text" id="new-item-name" placeholder="Enter item name" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <input type="text" id="new-item-description" placeholder="Enter item description" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Small Price (KSh)</label>
+                            <input type="number" id="new-item-small" placeholder="500" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Medium Price (KSh)</label>
+                            <input type="number" id="new-item-medium" placeholder="650" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Large Price (KSh)</label>
+                            <input type="number" id="new-item-large" placeholder="800" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex gap-3 mt-8">
+                    <button onclick="hideAddItemModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-3 rounded-lg text-lg font-semibold transition-colors">
+                        Cancel
+                    </button>
+                    <button onclick="addNewItemFromModal()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg text-lg font-semibold transition-colors">
+                        Add Item
+                    </button>
+                </div>
+                
+                <div id="add-item-error" class="text-red-600 text-center mt-3 hidden"></div>
+            </div>
+        </div>
+
+        <!-- Order Success Modal -->
+        <div id="success-modal" class="fixed inset-0 success-modal flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-3xl p-8 max-w-lg w-full mx-4 bounce-in">
+                <div class="text-center">
+                    <!-- Success Icon -->
+                    <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                    
+                    <h2 class="font-display text-3xl font-bold text-gray-900 mb-2">Order Submitted!</h2>
+                    <p id="success-message" class="text-lg text-gray-600 mb-8"></p>
+                    
+                    <!-- Animated Food Icons -->
+                    <div class="flex justify-center items-center gap-6 mb-8">
+                        <div class="food-animation text-6xl">☕</div>
+                        <div class="sparkle text-4xl text-yellow-400">✨</div>
+                        <div class="food-animation text-6xl" style="animation-delay: 0.5s;">🥐</div>
+                        <div class="sparkle text-4xl text-yellow-400" style="animation-delay: 1s;">✨</div>
+                        <div class="food-animation text-6xl" style="animation-delay: 1s;">🥪</div>
+                    </div>
+                    
+                    <p class="text-gray-500 mb-6">Your delicious order is being prepared with care!</p>
+                    
+                    <!-- Action Buttons -->
+                    <div class="flex gap-3">
+                        <button onclick="orderAgain()" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg text-lg font-semibold transition-colors">
+                            Order Again
+                        </button>
+                        <button onclick="closeSuccessModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-3 rounded-lg text-lg font-semibold transition-colors">
+                            Done
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <header id="menu-header" class="bg-white shadow-sm border-b hidden">
+            <div class="max-w-7xl mx-auto px-4 py-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="font-display text-4xl font-bold text-gray-900">Griffin's Capucino</h1>
+                        <p class="text-gray-600 mt-2 font-light">Premium Coffee & Fresh Delights</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm text-gray-500">Ordering for:</p>
+                        <p id="display-name" class="text-lg font-semibold text-green-600"></p>
+                        <div class="space-x-2">
+                            <button onclick="goBackToWelcome()" class="text-sm text-blue-600 hover:text-blue-800">Back to Welcome</button>
+                            <button onclick="changeCustomer()" class="text-sm text-blue-600 hover:text-blue-800">Change Name</button>
+                            <button onclick="showPasscodeModal()" class="text-sm bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded">Staff</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div id="menu-content" class="max-w-7xl mx-auto px-4 py-8 hidden">
+            <div class="grid lg:grid-cols-3 gap-8">
+                <!-- Menu Categories -->
+                <div class="lg:col-span-2 space-y-8">
+                    <!-- Coffee Drinks -->
+                    <section class="category-coffee rounded-2xl p-6">
+                        <h2 class="font-display text-2xl font-semibold text-amber-900 mb-4 flex items-center">
+                            <span class="w-3 h-3 bg-amber-600 rounded-full mr-3"></span>
+                            Coffee Drinks
+                        </h2>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('coffee', 'cappuccino', {small: 585, medium: 682, large: 773})">
+                                <h3 class="font-semibold text-gray-900 mb-2">Cappuccino</h3>
+                                <p class="text-sm text-gray-600 mb-3">Rich espresso with steamed milk and foam</p>
+                                <span class="text-lg font-semibold text-amber-700">KSh 585 - KSh 773</span>
+                            </div>
+                            <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('coffee', 'latte', {small: 682, medium: 773, large: 877})">
+                                <h3 class="font-semibold text-gray-900 mb-2">Caffe Latte</h3>
+                                <p class="text-sm text-gray-600 mb-3">Smooth espresso with steamed milk</p>
+                                <span class="text-lg font-semibold text-amber-700">KSh 682 - KSh 877</span>
+                            </div>
+                            <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('coffee', 'americano', {small: 487, medium: 552, large: 643})">
+                                <h3 class="font-semibold text-gray-900 mb-2">Americano</h3>
+                                <p class="text-sm text-gray-600 mb-3">Bold espresso with hot water</p>
+                                <span class="text-lg font-semibold text-amber-700">KSh 487 - KSh 643</span>
+                            </div>
+                            <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('coffee', 'mocha', {small: 747, medium: 838, large: 942})">
+                                <h3 class="font-semibold text-gray-900 mb-2">Mocha</h3>
+                                <p class="text-sm text-gray-600 mb-3">Espresso with chocolate and steamed milk</p>
+                                <span class="text-lg font-semibold text-amber-700">KSh 747 - KSh 942</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Pastries -->
+                    <section class="category-pastry rounded-2xl p-6">
+                        <h2 class="font-display text-2xl font-semibold text-red-900 mb-4 flex items-center">
+                            <span class="w-3 h-3 bg-red-600 rounded-full mr-3"></span>
+                            Pastries
+                        </h2>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('pastry', 'croissant', {small: 422, medium: 585, large: 747})">
+                                <h3 class="font-semibold text-gray-900 mb-2">Butter Croissant</h3>
+                                <p class="text-sm text-gray-600 mb-3">Flaky, buttery French pastry</p>
+                                <span class="text-lg font-semibold text-red-700">KSh 422 - KSh 747</span>
+                            </div>
+                            <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('pastry', 'muffin', {small: 383, medium: 487, large: 585})">
+                                <h3 class="font-semibold text-gray-900 mb-2">Blueberry Muffin</h3>
+                                <p class="text-sm text-gray-600 mb-3">Fresh baked with wild blueberries</p>
+                                <span class="text-lg font-semibold text-red-700">KSh 383 - KSh 585</span>
+                            </div>
+                            <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('pastry', 'danish', {small: 487, medium: 643, large: 812})">
+                                <h3 class="font-semibold text-gray-900 mb-2">Cheese Danish</h3>
+                                <p class="text-sm text-gray-600 mb-3">Sweet pastry with cream cheese filling</p>
+                                <span class="text-lg font-semibold text-red-700">KSh 487 - KSh 812</span>
+                            </div>
+                            <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('pastry', 'scone', {small: 455, medium: 552, large: 650})">
+                                <h3 class="font-semibold text-gray-900 mb-2">Cranberry Scone</h3>
+                                <p class="text-sm text-gray-600 mb-3">Traditional British scone with dried cranberries</p>
+                                <span class="text-lg font-semibold text-red-700">KSh 455 - KSh 650</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Sandwiches -->
+                    <section class="category-sandwich rounded-2xl p-6">
+                        <h2 class="font-display text-2xl font-semibold text-purple-900 mb-4 flex items-center">
+                            <span class="w-3 h-3 bg-purple-600 rounded-full mr-3"></span>
+                            Sandwiches
+                        </h2>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('sandwich', 'turkey-club', {small: 1163, medium: 1495, large: 1852})">
+                                <h3 class="font-semibold text-gray-900 mb-2">Turkey Club</h3>
+                                <p class="text-sm text-gray-600 mb-3">Roasted turkey, bacon, lettuce, tomato</p>
+                                <span class="text-lg font-semibold text-purple-700">KSh 1,163 - KSh 1,852</span>
+                            </div>
+                            <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('sandwich', 'grilled-cheese', {small: 845, medium: 1138, large: 1423})">
+                                <h3 class="font-semibold text-gray-900 mb-2">Grilled Cheese</h3>
+                                <p class="text-sm text-gray-600 mb-3">Melted cheddar on artisan sourdough</p>
+                                <span class="text-lg font-semibold text-purple-700">KSh 845 - KSh 1,423</span>
+                            </div>
+                            <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('sandwich', 'veggie-wrap', {small: 1007, medium: 1293, large: 1625})">
+                                <h3 class="font-semibold text-gray-900 mb-2">Veggie Wrap</h3>
+                                <p class="text-sm text-gray-600 mb-3">Fresh vegetables with hummus in spinach tortilla</p>
+                                <span class="text-lg font-semibold text-purple-700">KSh 1,007 - KSh 1,625</span>
+                            </div>
+                            <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('sandwich', 'blt', {small: 942, medium: 1235, large: 1527})">
+                                <h3 class="font-semibold text-gray-900 mb-2">Classic BLT</h3>
+                                <p class="text-sm text-gray-600 mb-3">Crispy bacon, lettuce, tomato on toasted bread</p>
+                                <span class="text-lg font-semibold text-purple-700">KSh 942 - KSh 1,527</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Desserts -->
+                    <section class="category-dessert rounded-2xl p-6">
+                        <h2 class="font-display text-2xl font-semibold text-green-900 mb-4 flex items-center">
+                            <span class="w-3 h-3 bg-green-600 rounded-full mr-3"></span>
+                            Desserts
+                        </h2>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('dessert', 'cheesecake', {small: 643, medium: 845, large: 1072})">
+                                <h3 class="font-semibold text-gray-900 mb-2">New York Cheesecake</h3>
+                                <p class="text-sm text-gray-600 mb-3">Rich and creamy with graham cracker crust</p>
+                                <span class="text-lg font-semibold text-green-700">KSh 643 - KSh 1,072</span>
+                            </div>
+                            <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('dessert', 'brownie', {small: 487, medium: 682, large: 903})">
+                                <h3 class="font-semibold text-gray-900 mb-2">Chocolate Brownie</h3>
+                                <p class="text-sm text-gray-600 mb-3">Fudgy chocolate brownie with walnuts</p>
+                                <span class="text-lg font-semibold text-green-700">KSh 487 - KSh 903</span>
+                            </div>
+                            <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('dessert', 'cookie', {small: 325, medium: 513, large: 715})">
+                                <h3 class="font-semibold text-gray-900 mb-2">Chocolate Chip Cookie</h3>
+                                <p class="text-sm text-gray-600 mb-3">Warm, gooey chocolate chip cookie</p>
+                                <span class="text-lg font-semibold text-green-700">KSh 325 - KSh 715</span>
+                            </div>
+                            <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('dessert', 'pie', {small: 552, medium: 773, large: 1007})">
+                                <h3 class="font-semibold text-gray-900 mb-2">Apple Pie</h3>
+                                <p class="text-sm text-gray-600 mb-3">Classic apple pie with cinnamon</p>
+                                <span class="text-lg font-semibold text-green-700">KSh 552 - KSh 1,007</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Size Selection -->
+                    <div id="size-selection" class="bg-white rounded-2xl p-6 hidden">
+                        <h3 class="font-display text-xl font-semibold text-gray-900 mb-4">Choose Your Size</h3>
+                        <div class="flex flex-wrap gap-3">
+                            <span class="size-chip bg-gray-100 px-4 py-3 rounded-full cursor-pointer border border-gray-200" onclick="selectSize('small')">
+                                <span class="font-medium">Small</span>
+                                <span id="small-price" class="text-sm text-gray-600 ml-2"></span>
+                            </span>
+                            <span class="size-chip bg-gray-100 px-4 py-3 rounded-full cursor-pointer border border-gray-200" onclick="selectSize('medium')">
+                                <span class="font-medium">Medium</span>
+                                <span id="medium-price" class="text-sm text-gray-600 ml-2"></span>
+                            </span>
+                            <span class="size-chip bg-gray-100 px-4 py-3 rounded-full cursor-pointer border border-gray-200" onclick="selectSize('large')">
+                                <span class="font-medium">Large</span>
+                                <span id="large-price" class="text-sm text-gray-600 ml-2"></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Order Summary -->
+                <div class="lg:col-span-1">
+                    <div class="order-summary rounded-2xl p-6 sticky top-8">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-display text-xl font-semibold text-gray-900">Your Order</h3>
+                            <button onclick="clearOrderWithX()" class="w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-sm font-bold transition-colors" title="Clear entire order">
+                                ×
+                            </button>
+                        </div>
+                        <div id="order-items" class="space-y-3 mb-6">
+                            <p class="text-gray-500 text-center py-8">Select items to build your order</p>
+                        </div>
+                        <div class="border-t pt-4">
+                            <div class="flex justify-between items-center mb-4">
+                                <span class="font-semibold text-lg">Total:</span>
+                                <span id="total-price" class="font-bold text-xl text-green-600">KSh 0</span>
+                            </div>
+                            <button id="submit-order" onclick="submitOrder()" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                                Submit Order
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Interface -->
+    <div id="admin-interface" class="hidden min-h-screen">
+        <header class="bg-purple-600 text-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 py-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="font-display text-3xl font-bold">Griffin's Capucino</h1>
+                        <p class="text-purple-100">Admin Panel</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="text-right">
+                            <p class="text-sm text-purple-100">System Status</p>
+                            <p class="text-2xl font-bold">Active</p>
+                        </div>
+                        <button onclick="goBack()" class="bg-purple-500 hover:bg-purple-400 px-4 py-2 rounded-lg transition-colors">
+                            Switch Mode
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="max-w-7xl mx-auto px-4 py-8">
+            <!-- Admin Tab Navigation -->
+            <div class="mb-6">
+                <div class="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
+                    <button id="menu-management-tab" onclick="switchAdminTab('menu')" class="px-4 py-2 rounded-md text-sm font-medium bg-white text-purple-600 shadow-sm">
+                        Menu Management
+                    </button>
+                    <button id="system-overview-tab" onclick="switchAdminTab('overview')" class="px-4 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900">
+                        System Overview
+                    </button>
+                    <button id="user-management-tab" onclick="switchAdminTab('users')" class="px-4 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900">
+                        User Management
+                    </button>
+                </div>
+            </div>
+
+            <!-- Menu Management View -->
+            <div id="menu-management-view" class="space-y-6">
+                <div class="bg-white rounded-xl shadow-sm border">
+                    <div class="p-6 border-b">
+                        <div class="flex justify-between items-center">
+                            <h3 class="font-semibold text-gray-900 text-lg">Menu Items & Pricing</h3>
+                            <button onclick="saveMenuChanges()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors">
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div id="menu-editor" class="space-y-8">
+                            <!-- Menu categories will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Overview View -->
+            <div id="system-overview-view" class="hidden space-y-6">
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div class="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-green-100 text-sm">Total Revenue</p>
+                                <p id="admin-total-revenue" class="text-2xl font-bold">KSh 0</p>
+                            </div>
+                            <div class="text-3xl opacity-80">💰</div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-blue-100 text-sm">Total Orders</p>
+                                <p id="admin-total-orders" class="text-2xl font-bold">0</p>
+                            </div>
+                            <div class="text-3xl opacity-80">📋</div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-purple-100 text-sm">Active Users</p>
+                                <p id="admin-active-users" class="text-2xl font-bold">1</p>
+                            </div>
+                            <div class="text-3xl opacity-80">👥</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Real-time Order Monitor -->
+                <div class="bg-white rounded-xl shadow-sm border">
+                    <div class="p-6 border-b">
+                        <h3 class="font-semibold text-gray-900 text-lg">Real-time Order Monitor</h3>
+                    </div>
+                    <div class="p-6">
+                        <div id="admin-order-monitor" class="space-y-4">
+                            <!-- Real-time orders will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Controls -->
+                <div class="bg-white rounded-xl shadow-sm border">
+                    <div class="p-6 border-b">
+                        <h3 class="font-semibold text-gray-900 text-lg">System Controls</h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <button onclick="resetAllData()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-lg transition-colors">
+                                Reset All Data
+                            </button>
+                            <button onclick="exportSystemData()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg transition-colors">
+                                Export System Data
+                            </button>
+                            <button onclick="backupData()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg transition-colors">
+                                Backup Data
+                            </button>
+                            <button onclick="restoreData()" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-lg transition-colors">
+                                Restore Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Management View -->
+            <div id="user-management-view" class="hidden space-y-6">
+                <div class="bg-white rounded-xl shadow-sm border">
+                    <div class="p-6 border-b">
+                        <div class="flex justify-between items-center">
+                            <h3 class="font-semibold text-gray-900 text-lg">Access Control</h3>
+                            <button onclick="saveUserSettings()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors">
+                                Save Settings
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Cashier Passcode</label>
+                                <input type="password" id="cashier-passcode" value="2121" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Admin Passcode</label>
+                                <input type="password" id="admin-passcode" value="admin123" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Restaurant Name</label>
+                                <input type="text" id="restaurant-name" value="Griffin's Capucino" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4">
+                                <p class="text-sm text-gray-500 mb-4">This name will appear throughout the entire system</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">System Settings</label>
+                                <div class="space-y-3">
+                                    <label class="flex items-center">
+                                        <input type="checkbox" id="auto-refresh" checked class="mr-2">
+                                        <span class="text-sm text-gray-700">Auto-refresh dashboards</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" id="sound-notifications" class="mr-2">
+                                        <span class="text-sm text-gray-700">Sound notifications for new orders</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cashier Interface -->
+    <div id="cashier-interface" class="hidden min-h-screen">
+        <header class="bg-blue-600 text-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 py-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="font-display text-3xl font-bold">Griffin's Capucino</h1>
+                        <p class="text-blue-100">Cashier Dashboard</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="text-right">
+                            <p class="text-sm text-blue-100">Total Orders Today</p>
+                            <p id="total-orders" class="text-2xl font-bold">0</p>
+                        </div>
+                        <button onclick="goBack()" class="bg-blue-500 hover:bg-blue-400 px-4 py-2 rounded-lg transition-colors">
+                            Switch Mode
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="max-w-7xl mx-auto px-4 py-8">
+            <!-- Financial Summary Cards -->
+            <div class="grid md:grid-cols-3 gap-4 mb-8">
+                <div class="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-green-100 text-sm">Today's Revenue</p>
+                            <p id="today-revenue" class="text-2xl font-bold">KSh 0</p>
+                        </div>
+                        <div class="text-3xl opacity-80">💰</div>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-sm">Orders Today</p>
+                            <p id="today-orders" class="text-2xl font-bold">0</p>
+                        </div>
+                        <div class="text-3xl opacity-80">📋</div>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-purple-100 text-sm">Average Order</p>
+                            <p id="average-order" class="text-2xl font-bold">KSh 0</p>
+                        </div>
+                        <div class="text-3xl opacity-80">📊</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="mb-6">
+                <div class="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
+                    <button id="active-tab" onclick="switchTab('active')" class="px-4 py-2 rounded-md text-sm font-medium bg-white text-blue-600 shadow-sm">
+                        Active Orders
+                    </button>
+                    <button id="history-tab" onclick="switchTab('history')" class="px-4 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900">
+                        Order History
+                    </button>
+                    <button id="financial-tab" onclick="switchTab('financial')" class="px-4 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900">
+                        Financial Report
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active Orders View -->
+            <div id="active-orders-view" class="grid lg:grid-cols-4 gap-6">
+                <!-- New Orders -->
+                <div class="bg-white rounded-xl shadow-sm border">
+                    <div class="p-4 border-b bg-yellow-50">
+                        <h3 class="font-semibold text-yellow-800 flex items-center">
+                            <span class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></span>
+                            New Orders
+                        </h3>
+                    </div>
+                    <div id="new-orders" class="p-4 space-y-3 max-h-96 overflow-y-auto">
+                        <p class="text-gray-500 text-center py-8">No new orders</p>
+                    </div>
+                </div>
+
+                <!-- Preparing -->
+                <div class="bg-white rounded-xl shadow-sm border">
+                    <div class="p-4 border-b bg-blue-50">
+                        <h3 class="font-semibold text-blue-800 flex items-center">
+                            <span class="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                            Preparing
+                        </h3>
+                    </div>
+                    <div id="preparing-orders" class="p-4 space-y-3 max-h-96 overflow-y-auto">
+                        <p class="text-gray-500 text-center py-8">No orders preparing</p>
+                    </div>
+                </div>
+
+                <!-- Ready -->
+                <div class="bg-white rounded-xl shadow-sm border">
+                    <div class="p-4 border-b bg-green-50">
+                        <h3 class="font-semibold text-green-800 flex items-center">
+                            <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                            Ready
+                        </h3>
+                    </div>
+                    <div id="ready-orders" class="p-4 space-y-3 max-h-96 overflow-y-auto">
+                        <p class="text-gray-500 text-center py-8">No orders ready</p>
+                    </div>
+                </div>
+
+                <!-- Completed -->
+                <div class="bg-white rounded-xl shadow-sm border">
+                    <div class="p-4 border-b bg-gray-50">
+                        <h3 class="font-semibold text-gray-800 flex items-center">
+                            <span class="w-3 h-3 bg-gray-500 rounded-full mr-2"></span>
+                            Completed
+                        </h3>
+                    </div>
+                    <div id="completed-orders" class="p-4 space-y-3 max-h-96 overflow-y-auto">
+                        <p class="text-gray-500 text-center py-8">No completed orders</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Order History View -->
+            <div id="history-view" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border">
+                    <div class="p-6 border-b">
+                        <div class="flex justify-between items-center">
+                            <h3 class="font-semibold text-gray-900 text-lg">Order History</h3>
+                            <div class="flex items-center gap-4">
+                                <div class="text-sm text-gray-600">
+                                    Total Revenue: <span id="total-revenue" class="font-semibold text-green-600">KSh 0</span>
+                                </div>
+                                <button onclick="clearHistory()" class="text-sm bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded transition-colors">
+                                    Clear History
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div id="history-orders" class="space-y-4 max-h-96 overflow-y-auto">
+                            <p class="text-gray-500 text-center py-8">No order history</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financial Report View -->
+            <div id="financial-view" class="hidden">
+                <div class="grid lg:grid-cols-2 gap-6">
+                    <!-- Revenue Breakdown -->
+                    <div class="bg-white rounded-xl shadow-sm border">
+                        <div class="p-6 border-b">
+                            <h3 class="font-semibold text-gray-900 text-lg">Revenue by Category</h3>
+                        </div>
+                        <div class="p-6">
+                            <div id="category-revenue" class="space-y-4">
+                                <div class="flex justify-between items-center p-3 bg-amber-50 rounded-lg">
+                                    <div class="flex items-center">
+                                        <span class="w-3 h-3 bg-amber-600 rounded-full mr-3"></span>
+                                        <span class="font-medium">Coffee Drinks</span>
+                                    </div>
+                                    <span id="coffee-revenue" class="font-bold text-amber-700">KSh 0</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                                    <div class="flex items-center">
+                                        <span class="w-3 h-3 bg-red-600 rounded-full mr-3"></span>
+                                        <span class="font-medium">Pastries</span>
+                                    </div>
+                                    <span id="pastry-revenue" class="font-bold text-red-700">KSh 0</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
+                                    <div class="flex items-center">
+                                        <span class="w-3 h-3 bg-purple-600 rounded-full mr-3"></span>
+                                        <span class="font-medium">Sandwiches</span>
+                                    </div>
+                                    <span id="sandwich-revenue" class="font-bold text-purple-700">KSh 0</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                                    <div class="flex items-center">
+                                        <span class="w-3 h-3 bg-green-600 rounded-full mr-3"></span>
+                                        <span class="font-medium">Desserts</span>
+                                    </div>
+                                    <span id="dessert-revenue" class="font-bold text-green-700">KSh 0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Top Items -->
+                    <div class="bg-white rounded-xl shadow-sm border">
+                        <div class="p-6 border-b">
+                            <h3 class="font-semibold text-gray-900 text-lg">Best Selling Items</h3>
+                        </div>
+                        <div class="p-6">
+                            <div id="top-items" class="space-y-3">
+                                <p class="text-gray-500 text-center py-8">No sales data yet</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Daily Sales Chart -->
+                    <div class="bg-white rounded-xl shadow-sm border lg:col-span-2">
+                        <div class="p-6 border-b">
+                            <div class="flex justify-between items-center">
+                                <h3 class="font-semibold text-gray-900 text-lg">Sales by Hour</h3>
+                                <button onclick="exportFinancialData()" class="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded transition-colors">
+                                    Export Data
+                                </button>
+                            </div>
+                        </div>
+                        <div class="p-6">
+                            <div id="hourly-sales" class="space-y-2">
+                                <!-- Hourly sales bars will be generated here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Financial Summary -->
+                    <div class="bg-white rounded-xl shadow-sm border lg:col-span-2">
+                        <div class="p-6 border-b">
+                            <h3 class="font-semibold text-gray-900 text-lg">Financial Summary</h3>
+                        </div>
+                        <div class="p-6">
+                            <div class="grid md:grid-cols-3 gap-6">
+                                <div class="text-center">
+                                    <p class="text-sm text-gray-600 mb-2">Total Orders</p>
+                                    <p id="summary-orders" class="text-3xl font-bold text-blue-600">0</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="text-sm text-gray-600 mb-2">Total Revenue</p>
+                                    <p id="summary-revenue" class="text-3xl font-bold text-green-600">KSh 0</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="text-sm text-gray-600 mb-2">Average Order Value</p>
+                                    <p id="summary-average" class="text-3xl font-bold text-purple-600">KSh 0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentMode = null;
+        let customerName = '';
+        let order = [];
+        let currentItem = null;
+        let selectedOrderItemIndex = -1;
+        let allOrders = JSON.parse(localStorage.getItem('griffinsOrders') || '[]');
+        let orderCounter = parseInt(localStorage.getItem('griffinsOrderCounter') || '1');
+        
+        // Menu data structure
+        let menuData = JSON.parse(localStorage.getItem('griffinsMenuData') || JSON.stringify({
+            coffee: {
+                name: 'Coffee Drinks',
+                color: 'amber',
+                items: {
+                    cappuccino: { name: 'Cappuccino', description: 'Rich espresso with steamed milk and foam', prices: {small: 585, medium: 682, large: 773} },
+                    latte: { name: 'Caffe Latte', description: 'Smooth espresso with steamed milk', prices: {small: 682, medium: 773, large: 877} },
+                    americano: { name: 'Americano', description: 'Bold espresso with hot water', prices: {small: 487, medium: 552, large: 643} },
+                    mocha: { name: 'Mocha', description: 'Espresso with chocolate and steamed milk', prices: {small: 747, medium: 838, large: 942} }
+                }
+            },
+            pastry: {
+                name: 'Pastries',
+                color: 'red',
+                items: {
+                    croissant: { name: 'Butter Croissant', description: 'Flaky, buttery French pastry', prices: {small: 422, medium: 585, large: 747} },
+                    muffin: { name: 'Blueberry Muffin', description: 'Fresh baked with wild blueberries', prices: {small: 383, medium: 487, large: 585} },
+                    danish: { name: 'Cheese Danish', description: 'Sweet pastry with cream cheese filling', prices: {small: 487, medium: 643, large: 812} },
+                    scone: { name: 'Cranberry Scone', description: 'Traditional British scone with dried cranberries', prices: {small: 455, medium: 552, large: 650} }
+                }
+            },
+            sandwich: {
+                name: 'Sandwiches',
+                color: 'purple',
+                items: {
+                    'turkey-club': { name: 'Turkey Club', description: 'Roasted turkey, bacon, lettuce, tomato', prices: {small: 1163, medium: 1495, large: 1852} },
+                    'grilled-cheese': { name: 'Grilled Cheese', description: 'Melted cheddar on artisan sourdough', prices: {small: 845, medium: 1138, large: 1423} },
+                    'veggie-wrap': { name: 'Veggie Wrap', description: 'Fresh vegetables with hummus in spinach tortilla', prices: {small: 1007, medium: 1293, large: 1625} },
+                    blt: { name: 'Classic BLT', description: 'Crispy bacon, lettuce, tomato on toasted bread', prices: {small: 942, medium: 1235, large: 1527} }
+                }
+            },
+            dessert: {
+                name: 'Desserts',
+                color: 'green',
+                items: {
+                    cheesecake: { name: 'New York Cheesecake', description: 'Rich and creamy with graham cracker crust', prices: {small: 643, medium: 845, large: 1072} },
+                    brownie: { name: 'Chocolate Brownie', description: 'Fudgy chocolate brownie with walnuts', prices: {small: 487, medium: 682, large: 903} },
+                    cookie: { name: 'Chocolate Chip Cookie', description: 'Warm, gooey chocolate chip cookie', prices: {small: 325, medium: 513, large: 715} },
+                    pie: { name: 'Apple Pie', description: 'Classic apple pie with cinnamon', prices: {small: 552, medium: 773, large: 1007} }
+                }
+            }
+        }));
+
+        // Mode selection
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('mode-selection').classList.add('hidden');
+            
+            if (mode === 'customer') {
+                document.getElementById('customer-interface').classList.remove('hidden');
+                document.getElementById('name-modal').classList.remove('hidden');
+            } else if (mode === 'cashier') {
+                // Show customer interface first (needed for modal structure)
+                document.getElementById('customer-interface').classList.remove('hidden');
+                // Then show passcode modal
+                showPasscodeModal();
+            } else if (mode === 'admin') {
+                // Show customer interface first (needed for modal structure)
+                document.getElementById('customer-interface').classList.remove('hidden');
+                // Then show admin passcode modal
+                showAdminPasscodeModal();
+            }
+        }
+
+        function goBack() {
+            document.getElementById('customer-interface').classList.add('hidden');
+            document.getElementById('cashier-interface').classList.add('hidden');
+            document.getElementById('admin-interface').classList.add('hidden');
+            document.getElementById('mode-selection').classList.remove('hidden');
+            currentMode = null;
+        }
+
+        // Admin passcode functions
+        function showAdminPasscodeModal() {
+            document.getElementById('admin-passcode-modal').classList.remove('hidden');
+            document.getElementById('admin-passcode-input').value = '';
+            document.getElementById('admin-passcode-error').classList.add('hidden');
+            document.getElementById('admin-passcode-input').focus();
+        }
+
+        function hideAdminPasscodeModal() {
+            document.getElementById('admin-passcode-modal').classList.add('hidden');
+            // Return to mode selection if cancelled
+            document.getElementById('mode-selection').classList.remove('hidden');
+            currentMode = null;
+        }
+
+        function checkAdminPasscode() {
+            const passcode = document.getElementById('admin-passcode-input').value;
+            const correctPasscode = localStorage.getItem('griffinsAdminPasscode') || 'admin123';
+            
+            if (passcode === correctPasscode) {
+                // Correct passcode - switch to admin mode
+                document.getElementById('admin-passcode-modal').classList.add('hidden');
+                document.getElementById('customer-interface').classList.add('hidden');
+                document.getElementById('mode-selection').classList.add('hidden');
+                document.getElementById('admin-interface').classList.remove('hidden');
+                currentMode = 'admin';
+                loadAdminDashboard();
+            } else {
+                // Wrong passcode
+                document.getElementById('admin-passcode-error').classList.remove('hidden');
+                document.getElementById('admin-passcode-input').value = '';
+                document.getElementById('admin-passcode-input').focus();
+            }
+        }
+
+        // Admin dashboard functions
+        function loadAdminDashboard() {
+            loadMenuEditor();
+            updateAdminOverview();
+            
+            // Auto-refresh every 10 seconds
+            setInterval(() => {
+                updateAdminOverview();
+            }, 10000);
+        }
+
+        function switchAdminTab(tab) {
+            const menuTab = document.getElementById('menu-management-tab');
+            const overviewTab = document.getElementById('system-overview-tab');
+            const usersTab = document.getElementById('user-management-tab');
+            const menuView = document.getElementById('menu-management-view');
+            const overviewView = document.getElementById('system-overview-view');
+            const usersView = document.getElementById('user-management-view');
+            
+            // Reset all tabs
+            menuTab.className = 'px-4 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900';
+            overviewTab.className = 'px-4 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900';
+            usersTab.className = 'px-4 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900';
+            
+            // Hide all views
+            menuView.classList.add('hidden');
+            overviewView.classList.add('hidden');
+            usersView.classList.add('hidden');
+            
+            if (tab === 'menu') {
+                menuTab.className = 'px-4 py-2 rounded-md text-sm font-medium bg-white text-purple-600 shadow-sm';
+                menuView.classList.remove('hidden');
+                loadMenuEditor();
+            } else if (tab === 'overview') {
+                overviewTab.className = 'px-4 py-2 rounded-md text-sm font-medium bg-white text-purple-600 shadow-sm';
+                overviewView.classList.remove('hidden');
+                updateAdminOverview();
+            } else if (tab === 'users') {
+                usersTab.className = 'px-4 py-2 rounded-md text-sm font-medium bg-white text-purple-600 shadow-sm';
+                usersView.classList.remove('hidden');
+                loadUserSettings();
+            }
+        }
+
+        function loadMenuEditor() {
+            const menuEditor = document.getElementById('menu-editor');
+            let html = '';
+            
+            Object.entries(menuData).forEach(([categoryKey, category]) => {
+                html += `
+                    <div class="bg-gray-50 rounded-xl p-6">
+                        <h4 class="font-semibold text-lg text-gray-900 mb-4 flex items-center">
+                            <span class="w-3 h-3 bg-${category.color}-600 rounded-full mr-3"></span>
+                            ${category.name}
+                        </h4>
+                        <div class="space-y-4">
+                `;
+                
+                Object.entries(category.items).forEach(([itemKey, item]) => {
+                    html += `
+                        <div class="bg-white rounded-lg p-4 border">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="grid md:grid-cols-2 gap-4 flex-1">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
+                                        <input type="text" value="${item.name}" 
+                                               onchange="updateMenuItem('${categoryKey}', '${itemKey}', 'name', this.value)"
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                        <input type="text" value="${item.description}" 
+                                               onchange="updateMenuItem('${categoryKey}', '${itemKey}', 'description', this.value)"
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    </div>
+                                </div>
+                                <button onclick="deleteMenuItem('${categoryKey}', '${itemKey}')" 
+                                        class="ml-4 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm transition-colors">
+                                    Delete
+                                </button>
+                            </div>
+                            <div class="grid md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Small Price (KSh)</label>
+                                    <input type="number" value="${item.prices.small}" 
+                                           onchange="updateMenuPrice('${categoryKey}', '${itemKey}', 'small', parseInt(this.value))"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Medium Price (KSh)</label>
+                                    <input type="number" value="${item.prices.medium}" 
+                                           onchange="updateMenuPrice('${categoryKey}', '${itemKey}', 'medium', parseInt(this.value))"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Large Price (KSh)</label>
+                                    <input type="number" value="${item.prices.large}" 
+                                           onchange="updateMenuPrice('${categoryKey}', '${itemKey}', 'large', parseInt(this.value))"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                // Add individual + button for each category
+                html += `
+                            <button onclick="addNewItemInline('${categoryKey}')" 
+                                    class="w-full bg-${category.color}-100 hover:bg-${category.color}-200 text-${category.color}-700 py-4 rounded-lg transition-colors flex items-center justify-center gap-2 border-2 border-dashed border-${category.color}-300">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                </svg>
+                                Add New ${category.name.slice(0, -1)}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            // Add single "Add New Item" button at the bottom
+            html += `
+                <div class="bg-white rounded-xl p-6 border-2 border-dashed border-purple-300">
+                    <button onclick="showAddItemModal()" 
+                            class="w-full bg-purple-100 hover:bg-purple-200 text-purple-700 py-6 rounded-lg transition-colors flex items-center justify-center gap-3 text-lg font-semibold">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Add New Menu Item
+                    </button>
+                </div>
+            `;
+            
+            menuEditor.innerHTML = html;
+        }
+
+        function updateMenuItem(categoryKey, itemKey, field, value) {
+            // If this is a temporary item and we're updating the name, convert it to a permanent item
+            if (itemKey.startsWith('temp_') && field === 'name' && value.trim()) {
+                const newItemKey = value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+                
+                // Check if item already exists
+                if (menuData[categoryKey].items[newItemKey] && newItemKey !== itemKey) {
+                    alert('An item with this name already exists in this category!');
+                    return;
+                }
+                
+                // Create new permanent item
+                const tempItem = menuData[categoryKey].items[itemKey];
+                tempItem[field] = value.trim();
+                
+                // Remove temp item and add permanent one
+                delete menuData[categoryKey].items[itemKey];
+                menuData[categoryKey].items[newItemKey] = tempItem;
+                
+                // Refresh the editor to show the permanent item
+                loadMenuEditor();
+                return;
+            }
+            
+            // Regular update
+            menuData[categoryKey].items[itemKey][field] = value;
+            
+            // Auto-update customer menu if changes are made
+            if (document.getElementById('menu-content') && !document.getElementById('menu-content').classList.contains('hidden')) {
+                refreshCustomerMenu();
+            }
+        }
+
+        function updateMenuPrice(categoryKey, itemKey, size, price) {
+            menuData[categoryKey].items[itemKey].prices[size] = price;
+            
+            // Auto-update customer menu if changes are made
+            if (document.getElementById('menu-content') && !document.getElementById('menu-content').classList.contains('hidden')) {
+                refreshCustomerMenu();
+            }
+        }
+
+        function showAddItemModal() {
+            document.getElementById('add-item-modal').classList.remove('hidden');
+            document.getElementById('add-item-error').classList.add('hidden');
+            
+            // Clear form
+            document.getElementById('new-item-category').value = 'coffee';
+            document.getElementById('new-item-name').value = '';
+            document.getElementById('new-item-description').value = '';
+            document.getElementById('new-item-small').value = '';
+            document.getElementById('new-item-medium').value = '';
+            document.getElementById('new-item-large').value = '';
+            
+            // Focus on name field
+            document.getElementById('new-item-name').focus();
+        }
+
+        function hideAddItemModal() {
+            document.getElementById('add-item-modal').classList.add('hidden');
+        }
+
+        function addNewItemFromModal() {
+            const categoryKey = document.getElementById('new-item-category').value;
+            const itemName = document.getElementById('new-item-name').value.trim();
+            const description = document.getElementById('new-item-description').value.trim();
+            const smallPrice = parseInt(document.getElementById('new-item-small').value) || 0;
+            const mediumPrice = parseInt(document.getElementById('new-item-medium').value) || 0;
+            const largePrice = parseInt(document.getElementById('new-item-large').value) || 0;
+            const errorDiv = document.getElementById('add-item-error');
+            
+            // Validation
+            if (!itemName) {
+                errorDiv.textContent = 'Please enter an item name';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            if (!description) {
+                errorDiv.textContent = 'Please enter a description';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            if (smallPrice <= 0 || mediumPrice <= 0 || largePrice <= 0) {
+                errorDiv.textContent = 'Please enter valid prices for all sizes';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            if (smallPrice >= mediumPrice || mediumPrice >= largePrice) {
+                errorDiv.textContent = 'Prices should increase: Small < Medium < Large';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            // Create a unique key for the item
+            const itemKey = itemName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            
+            // Check if item already exists
+            if (menuData[categoryKey].items[itemKey]) {
+                errorDiv.textContent = 'An item with this name already exists in this category!';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            // Add the new item
+            menuData[categoryKey].items[itemKey] = {
+                name: itemName,
+                description: description,
+                prices: {
+                    small: smallPrice,
+                    medium: mediumPrice,
+                    large: largePrice
+                }
+            };
+            
+            // Hide modal and refresh editor
+            hideAddItemModal();
+            loadMenuEditor();
+            
+            // Show success message
+            alert(`New item "${itemName}" added successfully to ${menuData[categoryKey].name}! Don't forget to save your changes.`);
+        }
+
+        function addNewItemInline(categoryKey) {
+            // Generate a temporary unique ID for the new item
+            const tempId = 'temp_' + Date.now();
+            
+            // Add a blank item to the category
+            menuData[categoryKey].items[tempId] = {
+                name: '',
+                description: '',
+                prices: {
+                    small: 500,
+                    medium: 650,
+                    large: 800
+                }
+            };
+            
+            // Refresh the menu editor to show the new blank item
+            loadMenuEditor();
+            
+            // Focus on the name field of the new item
+            setTimeout(() => {
+                const newItemInputs = document.querySelectorAll(`input[onchange*="${tempId}"]`);
+                if (newItemInputs.length > 0) {
+                    newItemInputs[0].focus();
+                    newItemInputs[0].placeholder = 'Enter item name...';
+                }
+            }, 100);
+        }
+
+        function addNewMenuItem(categoryKey) {
+            const itemName = prompt('Enter the name for the new item:');
+            if (!itemName || !itemName.trim()) {
+                return;
+            }
+            
+            const description = prompt('Enter a description for the item:') || 'Delicious item';
+            const smallPrice = parseInt(prompt('Enter the small size price (KSh):')) || 500;
+            const mediumPrice = parseInt(prompt('Enter the medium size price (KSh):')) || 650;
+            const largePrice = parseInt(prompt('Enter the large size price (KSh):')) || 800;
+            
+            // Create a unique key for the item
+            const itemKey = itemName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            
+            // Check if item already exists
+            if (menuData[categoryKey].items[itemKey]) {
+                alert('An item with this name already exists in this category!');
+                return;
+            }
+            
+            // Add the new item
+            menuData[categoryKey].items[itemKey] = {
+                name: itemName.trim(),
+                description: description.trim(),
+                prices: {
+                    small: smallPrice,
+                    medium: mediumPrice,
+                    large: largePrice
+                }
+            };
+            
+            // Refresh the menu editor
+            loadMenuEditor();
+            alert('New item added successfully! Don\'t forget to save your changes.');
+        }
+
+        function deleteMenuItem(categoryKey, itemKey) {
+            const itemName = menuData[categoryKey].items[itemKey].name;
+            if (confirm(`Are you sure you want to delete "${itemName}"? This action cannot be undone.`)) {
+                delete menuData[categoryKey].items[itemKey];
+                loadMenuEditor();
+                alert('Item deleted successfully! Don\'t forget to save your changes.');
+            }
+        }
+
+        function saveMenuChanges() {
+            localStorage.setItem('griffinsMenuData', JSON.stringify(menuData));
+            alert('Menu changes saved successfully!');
+            // Refresh the customer menu if it's loaded
+            if (document.getElementById('menu-content').classList.contains('hidden') === false) {
+                refreshCustomerMenu();
+            }
+        }
+
+        function refreshCustomerMenu() {
+            // Update the customer menu display with new menu data
+            const coffeeSection = document.querySelector('.category-coffee .grid');
+            const pastrySection = document.querySelector('.category-pastry .grid');
+            const sandwichSection = document.querySelector('.category-sandwich .grid');
+            const dessertSection = document.querySelector('.category-dessert .grid');
+            
+            if (coffeeSection) {
+                coffeeSection.innerHTML = generateCategoryItems('coffee');
+            }
+            if (pastrySection) {
+                pastrySection.innerHTML = generateCategoryItems('pastry');
+            }
+            if (sandwichSection) {
+                sandwichSection.innerHTML = generateCategoryItems('sandwich');
+            }
+            if (dessertSection) {
+                dessertSection.innerHTML = generateCategoryItems('dessert');
+            }
+        }
+
+        function generateCategoryItems(categoryKey) {
+            const category = menuData[categoryKey];
+            if (!category) return '';
+            
+            return Object.entries(category.items).map(([itemKey, item]) => {
+                const minPrice = Math.min(item.prices.small, item.prices.medium, item.prices.large);
+                const maxPrice = Math.max(item.prices.small, item.prices.medium, item.prices.large);
+                const priceRange = minPrice === maxPrice ? `KSh ${minPrice.toLocaleString()}` : `KSh ${minPrice.toLocaleString()} - KSh ${maxPrice.toLocaleString()}`;
+                
+                return `
+                    <div class="item-card bg-white rounded-xl p-4 cursor-pointer" onclick="selectItem('${categoryKey}', '${itemKey}', ${JSON.stringify(item.prices).replace(/"/g, '&quot;')})">
+                        <h3 class="font-semibold text-gray-900 mb-2">${item.name}</h3>
+                        <p class="text-sm text-gray-600 mb-3">${item.description}</p>
+                        <span class="text-lg font-semibold text-${category.color}-700">${priceRange}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateAdminOverview() {
+            const completedOrders = allOrders.filter(order => order.status === 'completed');
+            const totalRevenue = completedOrders.reduce((sum, order) => sum + order.total, 0);
+            
+            document.getElementById('admin-total-revenue').textContent = `KSh ${totalRevenue.toLocaleString()}`;
+            document.getElementById('admin-total-orders').textContent = allOrders.length;
+            
+            // Update real-time order monitor
+            const activeOrders = allOrders.filter(order => order.status !== 'completed');
+            const monitorDiv = document.getElementById('admin-order-monitor');
+            
+            if (activeOrders.length === 0) {
+                monitorDiv.innerHTML = '<p class="text-gray-500 text-center py-8">No active orders</p>';
+            } else {
+                monitorDiv.innerHTML = activeOrders.map(order => `
+                    <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                        <div>
+                            <h4 class="font-semibold">Order #${order.id} - ${order.customerName}</h4>
+                            <p class="text-sm text-gray-600">Status: <span class="capitalize font-medium">${order.status}</span></p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold">KSh ${order.total.toLocaleString()}</p>
+                            <p class="text-sm text-gray-500">${order.timeOrdered}</p>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function loadUserSettings() {
+            document.getElementById('cashier-passcode').value = localStorage.getItem('griffinsCashierPasscode') || '2121';
+            document.getElementById('admin-passcode').value = localStorage.getItem('griffinsAdminPasscode') || 'admin123';
+            document.getElementById('restaurant-name').value = localStorage.getItem('griffinsRestaurantName') || "Griffin's Capucino";
+        }
+
+        function saveUserSettings() {
+            const cashierPasscode = document.getElementById('cashier-passcode').value;
+            const adminPasscode = document.getElementById('admin-passcode').value;
+            const restaurantName = document.getElementById('restaurant-name').value.trim();
+            
+            if (!restaurantName) {
+                alert('Restaurant name cannot be empty!');
+                return;
+            }
+            
+            localStorage.setItem('griffinsCashierPasscode', cashierPasscode);
+            localStorage.setItem('griffinsAdminPasscode', adminPasscode);
+            localStorage.setItem('griffinsRestaurantName', restaurantName);
+            
+            // Update all restaurant name displays immediately
+            updateRestaurantNameDisplays(restaurantName);
+            
+            alert('Settings saved successfully! Restaurant name updated throughout the system.');
+        }
+
+        // Restaurant name update function
+        function updateRestaurantNameDisplays(name) {
+            // Update all restaurant name displays across all interfaces
+            const restaurantNameElements = document.querySelectorAll('h1');
+            restaurantNameElements.forEach(element => {
+                if (element.textContent.includes("Griffin's Capucino") || element.textContent.includes(localStorage.getItem('griffinsRestaurantName') || "Griffin's Capucino")) {
+                    element.textContent = name;
+                }
+            });
+            
+            // Update welcome message
+            const welcomeTitle = document.querySelector('#welcome-screen h1');
+            if (welcomeTitle) {
+                welcomeTitle.textContent = `Welcome to ${name}!`;
+            }
+        }
+
+        // Initialize restaurant name on page load
+        function initializeRestaurantName() {
+            const savedName = localStorage.getItem('griffinsRestaurantName') || "Griffin's Capucino";
+            updateRestaurantNameDisplays(savedName);
+        }
+
+        // System control functions
+        function resetAllData() {
+            if (confirm('Are you sure you want to reset ALL data? This will delete all orders, settings, and menu changes. This action cannot be undone.')) {
+                if (confirm('This is your final warning. All data will be permanently deleted. Continue?')) {
+                    localStorage.removeItem('griffinsOrders');
+                    localStorage.removeItem('griffinsOrderCounter');
+                    localStorage.removeItem('griffinsMenuData');
+                    localStorage.removeItem('griffinsCashierPasscode');
+                    localStorage.removeItem('griffinsAdminPasscode');
+                    localStorage.removeItem('griffinsRestaurantName');
+                    alert('All data has been reset. The page will now reload.');
+                    location.reload();
+                }
+            }
+        }
+
+        function exportSystemData() {
+            const systemData = {
+                orders: allOrders,
+                orderCounter: orderCounter,
+                menuData: menuData,
+                exportDate: new Date().toISOString()
+            };
+            
+            const dataStr = JSON.stringify(systemData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `griffins-system-backup-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        function backupData() {
+            const backup = {
+                orders: allOrders,
+                orderCounter: orderCounter,
+                menuData: menuData,
+                cashierPasscode: localStorage.getItem('griffinsCashierPasscode') || '2121',
+                adminPasscode: localStorage.getItem('griffinsAdminPasscode') || 'admin123',
+                restaurantName: localStorage.getItem('griffinsRestaurantName') || "Griffin's Capucino",
+                backupDate: new Date().toISOString()
+            };
+            
+            localStorage.setItem('griffinsBackup', JSON.stringify(backup));
+            alert('Data backed up successfully!');
+        }
+
+        function restoreData() {
+            const backup = localStorage.getItem('griffinsBackup');
+            if (!backup) {
+                alert('No backup found!');
+                return;
+            }
+            
+            if (confirm('Are you sure you want to restore from backup? This will overwrite current data.')) {
+                const backupData = JSON.parse(backup);
+                
+                localStorage.setItem('griffinsOrders', JSON.stringify(backupData.orders));
+                localStorage.setItem('griffinsOrderCounter', backupData.orderCounter.toString());
+                localStorage.setItem('griffinsMenuData', JSON.stringify(backupData.menuData));
+                localStorage.setItem('griffinsCashierPasscode', backupData.cashierPasscode);
+                localStorage.setItem('griffinsAdminPasscode', backupData.adminPasscode);
+                if (backupData.restaurantName) {
+                    localStorage.setItem('griffinsRestaurantName', backupData.restaurantName);
+                }
+                
+                alert('Data restored successfully! The page will now reload.');
+                location.reload();
+            }
+        }
+
+        function goBackFromCustomer() {
+            document.getElementById('name-modal').classList.add('hidden');
+            document.getElementById('customer-interface').classList.add('hidden');
+            document.getElementById('mode-selection').classList.remove('hidden');
+            currentMode = null;
+        }
+
+        function goBackFromWelcome() {
+            document.getElementById('welcome-screen').classList.add('hidden');
+            document.getElementById('customer-interface').classList.add('hidden');
+            document.getElementById('mode-selection').classList.remove('hidden');
+            currentMode = null;
+        }
+
+        function goBackToWelcome() {
+            document.getElementById('menu-header').classList.add('hidden');
+            document.getElementById('menu-content').classList.add('hidden');
+            document.getElementById('welcome-screen').classList.remove('hidden');
+            // Reset order
+            order = [];
+            updateOrderSummary();
+            // Clear any selected items
+            document.querySelectorAll('.item-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            document.getElementById('size-selection').classList.add('hidden');
+        }
+
+        // Customer name handling
+        function startOrdering() {
+            const nameInput = document.getElementById('customer-name');
+            const name = nameInput.value.trim();
+            
+            if (!name) {
+                alert('Please enter your first name');
+                return;
+            }
+            
+            customerName = name;
+            document.getElementById('display-name').textContent = name;
+            document.getElementById('welcome-name').textContent = name;
+            document.getElementById('start-ordering-btn').textContent = `Start Ordering as ${name}`;
+            document.getElementById('name-modal').classList.add('hidden');
+            document.getElementById('welcome-screen').classList.remove('hidden');
+        }
+
+        function goToMenu() {
+            document.getElementById('welcome-screen').classList.add('hidden');
+            document.getElementById('menu-header').classList.remove('hidden');
+            document.getElementById('menu-content').classList.remove('hidden');
+        }
+
+        function changeCustomer() {
+            document.getElementById('customer-name').value = '';
+            document.getElementById('name-modal').classList.remove('hidden');
+            document.getElementById('menu-header').classList.add('hidden');
+            document.getElementById('menu-content').classList.add('hidden');
+            // Reset order
+            order = [];
+            updateOrderSummary();
+        }
+
+        function changeCustomerFromWelcome() {
+            document.getElementById('customer-name').value = '';
+            document.getElementById('welcome-screen').classList.add('hidden');
+            document.getElementById('name-modal').classList.remove('hidden');
+            // Reset order
+            order = [];
+            updateOrderSummary();
+        }
+
+        // Passcode handling
+        function showPasscodeModal() {
+            document.getElementById('passcode-modal').classList.remove('hidden');
+            document.getElementById('passcode-input').value = '';
+            document.getElementById('passcode-error').classList.add('hidden');
+            document.getElementById('passcode-input').focus();
+        }
+
+        function hidePasscodeModal() {
+            document.getElementById('passcode-modal').classList.add('hidden');
+            // Return to mode selection if cancelled
+            document.getElementById('mode-selection').classList.remove('hidden');
+            currentMode = null;
+        }
+
+        function checkPasscode() {
+            const passcode = document.getElementById('passcode-input').value;
+            const correctPasscode = localStorage.getItem('griffinsCashierPasscode') || '2121';
+            
+            if (passcode === correctPasscode) {
+                // Correct passcode - switch to cashier mode
+                document.getElementById('passcode-modal').classList.add('hidden');
+                document.getElementById('customer-interface').classList.add('hidden');
+                document.getElementById('mode-selection').classList.add('hidden');
+                document.getElementById('cashier-interface').classList.remove('hidden');
+                currentMode = 'cashier';
+                loadCashierDashboard();
+            } else {
+                // Wrong passcode
+                document.getElementById('passcode-error').classList.remove('hidden');
+                document.getElementById('passcode-input').value = '';
+                document.getElementById('passcode-input').focus();
+            }
+        }
+
+        // Menu selection functions
+        function selectItem(category, itemName, prices) {
+            // Get current prices from menuData if available
+            const currentPrices = menuData[category] && menuData[category].items[itemName] 
+                ? menuData[category].items[itemName].prices 
+                : prices;
+                
+            currentItem = {
+                category: category,
+                name: itemName,
+                prices: currentPrices,
+                selectedSize: null,
+                finalPrice: 0
+            };
+            
+            // Update visual selection
+            document.querySelectorAll('.item-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+            
+            // Show size selection
+            showSizeSelection(currentPrices);
+        }
+
+        function showSizeSelection(prices) {
+            const sizeSection = document.getElementById('size-selection');
+            sizeSection.classList.remove('hidden');
+            
+            // Update price displays
+            document.getElementById('small-price').textContent = `KSh ${prices.small.toLocaleString()}`;
+            document.getElementById('medium-price').textContent = `KSh ${prices.medium.toLocaleString()}`;
+            document.getElementById('large-price').textContent = `KSh ${prices.large.toLocaleString()}`;
+            
+            // Clear previous size selections
+            document.querySelectorAll('.size-chip').forEach(chip => {
+                chip.classList.remove('selected');
+            });
+            
+            // Scroll to size selection
+            sizeSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function selectSize(size) {
+            if (!currentItem) return;
+            
+            currentItem.selectedSize = size;
+            currentItem.finalPrice = currentItem.prices[size];
+            
+            // Update visual selection
+            document.querySelectorAll('.size-chip').forEach(chip => {
+                chip.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+            
+            // Add to order (remove previous item of same category)
+            order = order.filter(item => item.category !== currentItem.category);
+            order.push({
+                category: currentItem.category,
+                name: currentItem.name,
+                size: size,
+                price: currentItem.finalPrice
+            });
+            
+            updateOrderSummary();
+            
+            // Hide size selection after a moment
+            setTimeout(() => {
+                document.getElementById('size-selection').classList.add('hidden');
+            }, 1000);
+        }
+
+        function updateOrderSummary() {
+            const orderItemsDiv = document.getElementById('order-items');
+            const totalPriceSpan = document.getElementById('total-price');
+            const submitButton = document.getElementById('submit-order');
+            if (order.length === 0) {
+                orderItemsDiv.innerHTML = '<p class="text-gray-500 text-center py-8">Select items to build your order</p>';
+                totalPriceSpan.textContent = 'KSh 0';
+                submitButton.disabled = true;
+                return;
+            }
+            
+            let total = 0;
+            let html = '';
+            
+            order.forEach((item, index) => {
+                html += `
+                    <div class="bg-white rounded-lg p-3 border order-item cursor-pointer hover:bg-red-50 transition-colors" 
+                         data-index="${index}" 
+                         onclick="selectOrderItem(${index})"
+                         title="Click to select, then press Delete key to remove">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-medium text-gray-900">${getItemDisplayName(item.name)}</h4>
+                                <div class="text-sm text-gray-600">
+                                    <span class="capitalize">${item.category}</span>
+                                    <span class="mx-1">•</span>
+                                    <span class="capitalize">${item.size}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-semibold text-gray-900">KSh ${item.price.toLocaleString()}</span>
+                                <button onclick="removeOrderItem(${index}); event.stopPropagation();" 
+                                        class="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                total += item.price;
+            });
+            
+            orderItemsDiv.innerHTML = html;
+            totalPriceSpan.textContent = `KSh ${total.toLocaleString()}`;
+            submitButton.disabled = false;
+        }
+
+        function clearOrderWithX() {
+            // Clear the order completely without confirmation
+            order = [];
+            selectedOrderItemIndex = -1;
+            currentItem = null;
+            
+            // Clear any selected menu items
+            document.querySelectorAll('.item-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Clear size selection
+            document.querySelectorAll('.size-chip').forEach(chip => {
+                chip.classList.remove('selected');
+            });
+            document.getElementById('size-selection').classList.add('hidden');
+            
+            // Update the order summary immediately
+            updateOrderSummary();
+            
+            // Show brief confirmation message
+            const orderItemsDiv = document.getElementById('order-items');
+            orderItemsDiv.innerHTML = '<p class="text-green-600 text-center py-8 font-medium">✓ Order cleared! Start fresh.</p>';
+            
+            // Reset to normal message after 1.5 seconds
+            setTimeout(() => {
+                if (order.length === 0) {
+                    orderItemsDiv.innerHTML = '<p class="text-gray-500 text-center py-8">Select items to build your order</p>';
+                }
+            }, 1500);
+        }
+
+        function submitOrder() {
+            if (order.length === 0 || !customerName) return;
+            
+            const newOrder = {
+                id: orderCounter++,
+                customerName: customerName,
+                items: [...order],
+                total: order.reduce((sum, item) => sum + item.price, 0),
+                status: 'preparing',
+                timestamp: new Date().toISOString(),
+                timeOrdered: new Date().toLocaleTimeString()
+            };
+            
+            allOrders.push(newOrder);
+            localStorage.setItem('griffinsOrders', JSON.stringify(allOrders));
+            localStorage.setItem('griffinsOrderCounter', orderCounter.toString());
+            
+            // Reset customer order
+            order = [];
+            updateOrderSummary();
+            
+            // Show success animation modal
+            showSuccessModal(newOrder);
+        }
+
+        function showSuccessModal(order) {
+            const modal = document.getElementById('success-modal');
+            const message = document.getElementById('success-message');
+            
+            message.innerHTML = `
+                Thank you ${customerName}! Your order #${order.id} has been submitted and is now being prepared.
+            `;
+            modal.classList.remove('hidden');
+            
+            // Animation will play continuously until user takes action - no auto-close
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('success-modal').classList.add('hidden');
+            // Go back to welcome screen
+            goBackToWelcome();
+        }
+
+        function orderAgain() {
+            document.getElementById('success-modal').classList.add('hidden');
+            // Keep the same customer name and reset order
+            order = [];
+            updateOrderSummary();
+            // Clear any selected items
+            document.querySelectorAll('.item-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            document.getElementById('size-selection').classList.add('hidden');
+            // Stay on menu page
+        }
+
+        // Cashier dashboard functions
+        function loadCashierDashboard() {
+            allOrders = JSON.parse(localStorage.getItem('griffinsOrders') || '[]');
+            updateCashierDisplay();
+            updateFinancialSummary();
+            
+            // Auto-refresh every 5 seconds
+            setInterval(() => {
+                updateCashierDisplay();
+                updateFinancialSummary();
+            }, 5000);
+        }
+
+        function switchTab(tab) {
+            const activeTab = document.getElementById('active-tab');
+            const historyTab = document.getElementById('history-tab');
+            const financialTab = document.getElementById('financial-tab');
+            const activeView = document.getElementById('active-orders-view');
+            const historyView = document.getElementById('history-view');
+            const financialView = document.getElementById('financial-view');
+            
+            // Reset all tabs
+            activeTab.className = 'px-4 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900';
+            historyTab.className = 'px-4 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900';
+            financialTab.className = 'px-4 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900';
+            
+            // Hide all views
+            activeView.classList.add('hidden');
+            historyView.classList.add('hidden');
+            financialView.classList.add('hidden');
+            
+            if (tab === 'active') {
+                activeTab.className = 'px-4 py-2 rounded-md text-sm font-medium bg-white text-blue-600 shadow-sm';
+                activeView.classList.remove('hidden');
+            } else if (tab === 'history') {
+                historyTab.className = 'px-4 py-2 rounded-md text-sm font-medium bg-white text-blue-600 shadow-sm';
+                historyView.classList.remove('hidden');
+                updateHistoryView();
+            } else if (tab === 'financial') {
+                financialTab.className = 'px-4 py-2 rounded-md text-sm font-medium bg-white text-blue-600 shadow-sm';
+                financialView.classList.remove('hidden');
+                updateFinancialView();
+            }
+        }
+
+        function updateHistoryView() {
+            const historyDiv = document.getElementById('history-orders');
+            const revenueSpan = document.getElementById('total-revenue');
+            
+            // Get all completed orders
+            const completedOrders = allOrders.filter(order => order.status === 'completed');
+            
+            if (completedOrders.length === 0) {
+                historyDiv.innerHTML = '<p class="text-gray-500 text-center py-8">No order history</p>';
+                revenueSpan.textContent = 'KSh 0';
+                return;
+            }
+            
+            // Calculate total revenue
+            const totalRevenue = completedOrders.reduce((sum, order) => sum + order.total, 0);
+            revenueSpan.textContent = `KSh ${totalRevenue.toLocaleString()}`;
+            
+            // Sort orders by completion time (newest first)
+            completedOrders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            // Create history cards
+            const historyHtml = completedOrders.map(order => `
+                <div class="bg-gray-50 border rounded-lg p-4">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <h4 class="font-bold text-lg text-gray-900">Order #${order.id}</h4>
+                            <p class="text-green-600 font-semibold">${order.customerName}</p>
+                            <p class="text-sm text-gray-500">Completed at ${order.timeOrdered}</p>
+                        </div>
+                        <span class="text-lg font-bold text-gray-900">KSh ${order.total.toLocaleString()}</span>
+                    </div>
+                    <div class="space-y-1">
+                        ${order.items.map(item => `
+                            <div class="flex justify-between text-sm text-gray-600">
+                                <span>${getItemDisplayName(item.name)} (${item.size})</span>
+                                <span>KSh ${item.price.toLocaleString()}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+            
+            historyDiv.innerHTML = historyHtml;
+        }
+
+        function clearHistory() {
+            if (confirm('Are you sure you want to clear all order history? This action cannot be undone.')) {
+                // Remove all completed orders
+                allOrders = allOrders.filter(order => order.status !== 'completed');
+                localStorage.setItem('griffinsOrders', JSON.stringify(allOrders));
+                updateHistoryView();
+                updateCashierDisplay();
+            }
+        }
+
+        function updateCashierDisplay() {
+            const newOrdersDiv = document.getElementById('new-orders');
+            const preparingDiv = document.getElementById('preparing-orders');
+            const readyDiv = document.getElementById('ready-orders');
+            const completedDiv = document.getElementById('completed-orders');
+            const totalOrdersSpan = document.getElementById('total-orders');
+            
+            // Filter orders by status
+            const newOrders = allOrders.filter(order => order.status === 'new');
+            const preparingOrders = allOrders.filter(order => order.status === 'preparing');
+            const readyOrders = allOrders.filter(order => order.status === 'ready');
+            const completedOrders = allOrders.filter(order => order.status === 'completed');
+            
+            // Update displays
+            newOrdersDiv.innerHTML = newOrders.length ? newOrders.map(order => createOrderCard(order)).join('') : '<p class="text-gray-500 text-center py-8">No new orders</p>';
+            preparingDiv.innerHTML = preparingOrders.length ? preparingOrders.map(order => createOrderCard(order)).join('') : '<p class="text-gray-500 text-center py-8">No orders preparing</p>';
+            readyDiv.innerHTML = readyOrders.length ? readyOrders.map(order => createOrderCard(order)).join('') : '<p class="text-gray-500 text-center py-8">No orders ready</p>';
+            completedDiv.innerHTML = completedOrders.length ? completedOrders.map(order => createOrderCard(order)).join('') : '<p class="text-gray-500 text-center py-8">No completed orders</p>';
+            
+            totalOrdersSpan.textContent = allOrders.length;
+        }
+
+        function createOrderCard(order) {
+            const statusColors = {
+                new: 'status-pending',
+                preparing: 'status-preparing',
+                ready: 'status-ready',
+                completed: 'status-completed'
+            };
+            
+            let actionButtons = '';
+            
+            if (order.status === 'new') {
+                actionButtons = `
+                    <button onclick="updateOrderStatus(${order.id}, 'preparing')" 
+                            class="w-full mt-3 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors">
+                        Start Preparing
+                    </button>
+                `;
+            } else if (order.status === 'preparing') {
+                actionButtons = `
+                    <button onclick="updateOrderStatus(${order.id}, 'ready')" 
+                            class="w-full mt-3 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors">
+                        Mark Ready
+                    </button>
+                `;
+            } else if (order.status === 'ready') {
+                actionButtons = `
+                    <button onclick="updateOrderStatus(${order.id}, 'completed')" 
+                            class="w-full mt-3 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors">
+                        Complete Order
+                    </button>
+                `;
+            }
+            
+            return `
+                <div class="order-card bg-white border rounded-lg p-4 ${statusColors[order.status]} ${order.status === 'new' ? 'new-order' : ''}">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <h4 class="font-bold text-lg text-gray-900">Order #${order.id}</h4>
+                            <p class="text-green-600 font-semibold">${order.customerName}</p>
+                            <p class="text-sm text-gray-500">${order.timeOrdered}</p>
+                        </div>
+                        <span class="text-lg font-bold text-gray-900">KSh ${order.total.toLocaleString()}</span>
+                    </div>
+                    <div class="space-y-2">
+                        ${order.items.map(item => `
+                            <div class="flex justify-between text-sm">
+                                <span>${getItemDisplayName(item.name)} (${item.size})</span>
+                                <span>KSh ${item.price.toLocaleString()}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ${actionButtons}
+                </div>
+            `;
+        }
+
+
+
+        function updateOrderStatus(orderId, newStatus) {
+            allOrders = allOrders.map(order => {
+                if (order.id === orderId) {
+                    order.status = newStatus;
+                }
+                return order;
+            });
+            
+            localStorage.setItem('griffinsOrders', JSON.stringify(allOrders));
+            updateCashierDisplay();
+        }
+
+        function getItemDisplayName(itemName) {
+            return itemName.split('-').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ');
+        }
+
+        function updateFinancialSummary() {
+            const today = new Date().toDateString();
+            const todayOrders = allOrders.filter(order => 
+                new Date(order.timestamp).toDateString() === today
+            );
+            const completedTodayOrders = todayOrders.filter(order => order.status === 'completed');
+            
+            // Today's metrics
+            const todayRevenue = completedTodayOrders.reduce((sum, order) => sum + order.total, 0);
+            const todayOrderCount = completedTodayOrders.length;
+            const averageOrder = todayOrderCount > 0 ? todayRevenue / todayOrderCount : 0;
+            
+            // Update summary cards
+            document.getElementById('today-revenue').textContent = `KSh ${todayRevenue.toLocaleString()}`;
+            document.getElementById('today-orders').textContent = todayOrderCount;
+            document.getElementById('average-order').textContent = `KSh ${Math.round(averageOrder).toLocaleString()}`;
+            
+
+        }
+
+        function updateFinancialView() {
+            const completedOrders = allOrders.filter(order => order.status === 'completed');
+            
+            // Calculate category revenues
+            const categoryRevenue = {
+                coffee: 0,
+                pastry: 0,
+                sandwich: 0,
+                dessert: 0
+            };
+            
+            const itemCounts = {};
+            const hourlyRevenue = Array(24).fill(0);
+            
+            completedOrders.forEach(order => {
+                order.items.forEach(item => {
+                    categoryRevenue[item.category] += item.price;
+                    
+                    // Count items for best sellers
+                    const itemKey = `${item.name} (${item.size})`;
+                    itemCounts[itemKey] = (itemCounts[itemKey] || 0) + 1;
+                });
+                
+                // Hourly revenue
+                const hour = new Date(order.timestamp).getHours();
+                hourlyRevenue[hour] += order.total;
+            });
+            
+            // Update category revenue displays
+            document.getElementById('coffee-revenue').textContent = `KSh ${categoryRevenue.coffee.toLocaleString()}`;
+            document.getElementById('pastry-revenue').textContent = `KSh ${categoryRevenue.pastry.toLocaleString()}`;
+            document.getElementById('sandwich-revenue').textContent = `KSh ${categoryRevenue.sandwich.toLocaleString()}`;
+            document.getElementById('dessert-revenue').textContent = `KSh ${categoryRevenue.dessert.toLocaleString()}`;
+            
+            // Update top items
+            const sortedItems = Object.entries(itemCounts)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 5);
+            
+            const topItemsDiv = document.getElementById('top-items');
+            if (sortedItems.length === 0) {
+                topItemsDiv.innerHTML = '<p class="text-gray-500 text-center py-8">No sales data yet</p>';
+            } else {
+                topItemsDiv.innerHTML = sortedItems.map(([item, count], index) => `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center">
+                            <span class="w-6 h-6 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center mr-3">${index + 1}</span>
+                            <span class="font-medium">${getItemDisplayName(item.split(' (')[0])}</span>
+                        </div>
+                        <span class="font-bold text-blue-600">${count} sold</span>
+                    </div>
+                `).join('');
+            }
+            
+            // Update hourly sales chart
+            const maxHourlyRevenue = Math.max(...hourlyRevenue);
+            const hourlySalesDiv = document.getElementById('hourly-sales');
+            
+            if (maxHourlyRevenue === 0) {
+                hourlySalesDiv.innerHTML = '<p class="text-gray-500 text-center py-8">No sales data for today</p>';
+            } else {
+                hourlySalesDiv.innerHTML = hourlyRevenue.map((revenue, hour) => {
+                    const percentage = maxHourlyRevenue > 0 ? (revenue / maxHourlyRevenue) * 100 : 0;
+                    return `
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm text-gray-600 w-12">${hour.toString().padStart(2, '0')}:00</span>
+                            <div class="flex-1 bg-gray-200 rounded-full h-6 relative">
+                                <div class="bg-blue-600 h-6 rounded-full transition-all duration-300" style="width: ${percentage}%"></div>
+                                <span class="absolute right-2 top-0 h-6 flex items-center text-xs font-medium text-gray-700">
+                                    KSh ${revenue.toLocaleString()}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            // Update financial summary
+            const totalRevenue = completedOrders.reduce((sum, order) => sum + order.total, 0);
+            const totalOrders = completedOrders.length;
+            const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+            
+            document.getElementById('summary-orders').textContent = totalOrders;
+            document.getElementById('summary-revenue').textContent = `KSh ${totalRevenue.toLocaleString()}`;
+            document.getElementById('summary-average').textContent = `KSh ${Math.round(avgOrderValue).toLocaleString()}`;
+        }
+
+        function exportFinancialData() {
+            const completedOrders = allOrders.filter(order => order.status === 'completed');
+            
+            if (completedOrders.length === 0) {
+                alert('No financial data to export');
+                return;
+            }
+            
+            // Create CSV content
+            let csvContent = 'Order ID,Customer Name,Date,Time,Items,Total\n';
+            
+            completedOrders.forEach(order => {
+                const date = new Date(order.timestamp).toLocaleDateString();
+                const time = new Date(order.timestamp).toLocaleTimeString();
+                const items = order.items.map(item => `${getItemDisplayName(item.name)} (${item.size})`).join('; ');
+                
+                csvContent += `${order.id},"${order.customerName}","${date}","${time}","${items}",${order.total}\n`;
+            });
+            
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `griffins-financial-report-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Order item selection and deletion functions
+        function selectOrderItem(index) {
+            // Clear previous selection
+            document.querySelectorAll('.order-item').forEach(item => {
+                item.classList.remove('ring-2', 'ring-red-500', 'bg-red-50');
+            });
+            
+            // Select new item
+            selectedOrderItemIndex = index;
+            const selectedItem = document.querySelector(`[data-index="${index}"]`);
+            if (selectedItem) {
+                selectedItem.classList.add('ring-2', 'ring-red-500', 'bg-red-50');
+            }
+        }
+
+        function removeOrderItem(index) {
+            order.splice(index, 1);
+            selectedOrderItemIndex = -1;
+            updateOrderSummary();
+            
+            // Clear any selected menu items since order changed
+            document.querySelectorAll('.item-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            document.getElementById('size-selection').classList.add('hidden');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize restaurant name displays
+            initializeRestaurantName();
+            
+            // Allow Enter key to submit name
+            document.getElementById('customer-name').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    startOrdering();
+                }
+            });
+            
+            // Allow Enter key to submit passcode
+            document.getElementById('passcode-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    checkPasscode();
+                }
+            });
+            
+            // Allow Enter key to submit admin passcode
+            document.getElementById('admin-passcode-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    checkAdminPasscode();
+                }
+            });
+            
+            // Handle Delete key for removing selected order items
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Delete' && selectedOrderItemIndex >= 0 && currentMode === 'customer') {
+                    removeOrderItem(selectedOrderItemIndex);
+                }
+            });
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9883f71973468a44',t:'MTc1OTQwNTY0OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
